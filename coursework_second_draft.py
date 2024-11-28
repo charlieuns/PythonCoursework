@@ -221,22 +221,40 @@ true_best_suppliers = cost.groupby('Task ID')['Cost'].min()
 test_best_suppliers = true_best_suppliers[true_best_suppliers.index.isin(TestGroup)]
 
 # Defining functions to calculate errors and rmse
-def error(true_min_costs, predicted_min_cost):
+def error_calc(true_min_costs, predicted_min_cost):
    error = true_min_costs - predicted_min_cost
    return error
 
-def rmse(error_series):
-    error_array = error_series.to_numpy(dtype=float)
+def rmse_calc(error_array):
     squared_errors = error_array*error_array
     rss = np.sum(squared_errors)
-    value = np.sqrt(rss/len(error_series))
+    value = np.sqrt(rss/len(error_array))
     return value
 
-ridge_error = error(test_best_suppliers, pred_best_suppliers)
-ridge_rmse = rmse(ridge_error)
+ridge_error = error_calc(test_best_suppliers, pred_best_suppliers)
+ridge_rmse = rmse_calc(ridge_error)
 
 # Results for an initial ridge model
 print(ridge_error)
 print(ridge_rmse)
 
+# 4 Performing cross validation
+from sklearn.model_selection import LeaveOneGroupOut, cross_val_score
+from sklearn.metrics import make_scorer
 
+train_tasks = dataset['Task ID'][~test_loc]
+
+ridge_cv = Ridge(alpha=0.5)
+logo = LeaveOneGroupOut()
+
+# Defining our scoring function:
+# Since the test set for each fold of the cross validation only contains one group
+# we can just find the minimums of each array, then compute rmse from that
+
+def error_scoring(all_trues, all_preds):
+    error = all_trues.min() - all_preds.min()
+    return error
+error_scorer = make_scorer(error_scoring)
+
+scores = cross_val_score(ridge_cv, X_train, y_train, cv=logo, groups=train_tasks, scoring=error_scorer)
+cv_rmse = rmse_calc(scores)
